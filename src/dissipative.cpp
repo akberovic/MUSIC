@@ -54,19 +54,17 @@ void Diss::MakeWSource(
         double Pi_alpha0 = 0.0;
         if (alpha < 4 && DATA.turn_on_bulk == 1) {
             double gfac = (alpha == 0 ? -1.0 : 0.0);
-            Pi_alpha0 =
-                (arenaCurr.piBulk_[fieldIdx]
-                 * (gfac
-                    + arenaCurr.u_[alpha][fieldIdx]
-                          * arenaCurr.u_[0][fieldIdx]));
-            dPidtau =
-                ((Pi_alpha0
-                  - arenaPrev.piBulk_[fieldIdx]
-                        * (gfac
-                           + arenaPrev.u_[alpha][fieldIdx]
-                                 * arenaPrev.u_[0][fieldIdx]))
-                 / DATA.delta_tau);
+            double PiCurr = arenaCurr.piBulk_[fieldIdx] + arenaCurr.piBulkChem_[fieldIdx];
+            double PiPrev = arenaPrev.piBulk_[fieldIdx] + arenaPrev.piBulkChem_[fieldIdx];
+
+            Pi_alpha0 = PiCurr* (gfac + arenaCurr.u_[alpha][fieldIdx]
+                                       * arenaCurr.u_[0][fieldIdx]);
+            dPidtau = (Pi_alpha0
+                       - PiPrev* (gfac + arenaPrev.u_[alpha][fieldIdx]
+                                           * arenaPrev.u_[0][fieldIdx]))
+                      / DATA.delta_tau;
         }
+
         double sf = tau * dWdtau + arenaCurr.Wmunu_[idx_1d_alpha0][fieldIdx];
         double bf = tau * dPidtau + Pi_alpha0;
         dwmn[alpha] += sf + bf;
@@ -75,7 +73,9 @@ void Diss::MakeWSource(
             music_message << "sf=" << sf << " bf=" << bf << " Wmunu ="
                           << arenaCurr.Wmunu_[idx_1d_alpha0][fieldIdx]
                           << " pi_b =" << arenaCurr.piBulk_[fieldIdx]
-                          << " prev_pi_b=" << arenaPrev.piBulk_[fieldIdx];
+                          << " prev_pi_b=" << arenaPrev.piBulk_[fieldIdx]
+                          <<" pi_b_chem =" << arenaCurr.piBulkChem_[fieldIdx]
+                          << " prev_pi_b_chem=" << arenaPrev.piBulkChem_[fieldIdx];
             music_message.flush("error");
             music_message << "dWdtau = " << dWdtau;
             music_message.flush("error");
@@ -105,24 +105,27 @@ void Diss::MakeWSource(
                 double Pi_p = 0;
                 if (DATA.turn_on_bulk == 1 && alpha < 4) {
                     double gfac1 = (alpha == (direction) ? 1.0 : 0.0);
-                    double bgp1 =
-                        (arenaCurr.piBulk_[Ip1]
-                         * (gfac1
+                    double PiIp1 =
+                        arenaCurr.piBulk_[Ip1] + arenaCurr.piBulkChem_[Ip1];
+                    double PiIc =
+                        arenaCurr.piBulk_[Ic] + arenaCurr.piBulkChem_[Ic];
+                    double PiIm1 =
+                        arenaCurr.piBulk_[Im1] + arenaCurr.piBulkChem_[Im1];
+                    
+                    double bgp1 =PiIp1 * (gfac1
                             + arenaCurr.u_[alpha][Ip1]
                                   * arenaCurr.u_[direction][Ip1])
-                         * tau_fac[direction]);
+                         * tau_fac[direction];
                     double bg =
-                        (arenaCurr.piBulk_[Ic]
-                         * (gfac1
-                            + arenaCurr.u_[alpha][Ic]
-                                  * arenaCurr.u_[direction][Ic])
-                         * tau_fac[direction]);
+                        PiIc * (gfac1
+                                + arenaCurr.u_[alpha][Ic]
+                                      * arenaCurr.u_[direction][Ic])
+                             * tau_fac[direction];
                     double bgm1 =
-                        (arenaCurr.piBulk_[Im1]
-                         * (gfac1
-                            + arenaCurr.u_[alpha][Im1]
-                                  * arenaCurr.u_[direction][Im1])
-                         * tau_fac[direction]);
+                        PiIm1 * (gfac1
+                                + arenaCurr.u_[alpha][Im1]
+                                      * arenaCurr.u_[direction][Im1])
+                             * tau_fac[direction];
                     // dPidx += minmod.minmod_dx(bgp1, bg,
                     // bgm1)/delta[direction];
                     //  use central difference to preserve conservation law
@@ -439,10 +442,13 @@ void Diss::Make_uWRHS(
     double delta[4] = {0.0, DATA.delta_x, DATA.delta_y, DATA.delta_eta * tau};
     const double delta_tau = DATA.delta_tau;
 
-    int piIdxArr[9] = {4, 5, 6, 7, 8, 9, 11, 12, 13};
+    int piIdxArr[10] = {4, 5, 6, 7, 8, 9, 14, 11, 12, 13}; // take 14 for piBulkChem
     int loopIdx = 5;
     if (DATA.turn_on_bulk) {
         loopIdx = 6;
+    }
+    if (DATA.turn_on_bulk_chem) {
+        loopIdx = 7;
     }
     if (DATA.turn_on_diff) {
         loopIdx = 9;
@@ -462,7 +468,14 @@ void Diss::Make_uWRHS(
                     gp1 = arena.piBulk_[Ip1];
                     gm1 = arena.piBulk_[Im1];
                     gm2 = arena.piBulk_[Im2];
-                } else {
+                } else if (idx_1d == 14) {
+                    g = arena.piBulkChem_[Ic];
+                    gp2 = arena.piBulkChem_[Ip2];
+                    gp1 = arena.piBulkChem_[Ip1];
+                    gm1 = arena.piBulkChem_[Im1];
+                    gm2 = arena.piBulkChem_[Im2];
+                }   
+                else {
                     g = arena.Wmunu_[idx_1d][Ic];
                     gp2 = arena.Wmunu_[idx_1d][Ip2];
                     gp1 = arena.Wmunu_[idx_1d][Ip1];
@@ -564,6 +577,11 @@ void Diss::Make_uWRHS(
     if (DATA.turn_on_bulk == 1) {
         w_rhs[5] -= (grid_pt.pi_b) * (grid_pt.u[0]) / tau * DATA.delta_tau;
         w_rhs[5] += (grid_pt.pi_b) * theta_local * DATA.delta_tau;
+    }
+
+    if(DATA.turn_on_bulk_chem == 1) {
+        w_rhs[6] -= (grid_pt.pi_b_chem) * (grid_pt.u[0]) / tau * DATA.delta_tau;
+        w_rhs[6] += (grid_pt.pi_b_chem) * theta_local * DATA.delta_tau;
     }
 }
 
@@ -726,6 +744,104 @@ double Diss::Make_uPiSource(
     -Delta[a][eta] u[eta] q[tau]/tau
     -u[a]u[b]g[b][e] Dq[e]
 */
+
+double Diss::Make_uPiChemSource(
+    const double tau, const Cell_small &grid_pt, const double theta_local,
+    const VelocityShearVec &/*sigma_1d*/, const std::vector<double> &thermalVec) {
+
+    // --- read thermal variables already provided by MUSIC ---
+    const double epsilon     = thermalVec[0];
+    const double pressure    = thermalVec[2];
+    const double cs2         = thermalVec[5];
+    const double temperature = thermalVec[6];  // 1/fm in MUSIC units
+
+    // --- Eq. (69): close Y_q using I_QCD and Pi_chem ---
+    // I_QCD = e - 3P
+    const double Iqcd = (epsilon - 3.0 * pressure);
+    const double Iqcd_safe =
+        std::copysign(std::max(std::abs(Iqcd), small_eps), Iqcd);
+
+    // x = sqrt(Y_q) = 1 - 3 Pi_chem / I_QCD, clamp to [0, 1]
+    const double x_raw = 1.0 - 3.0 * grid_pt.pi_b_chem / Iqcd_safe;
+    const double y_q_raw = x_raw * x_raw;
+    double x = std::max(0.0, std::min(1.0, x_raw));
+
+    // --- Eq. (73): tau_Pi_chem = 1 / (C * T * (1 + x)^2) ---
+    //  Provide DATA.chem_rate_C constant C in R = C*T
+    const double C = std::max(DATA.chem_rate_C, small_eps);
+    const double one_plus_x = (1.0 + x);
+
+    double tau_Pi_chem =
+        1.0 / std::max(C * std::max(temperature, small_eps)
+                           * one_plus_x * one_plus_x,
+                       small_eps);
+
+    tau_Pi_chem = std::min(10.0, std::max(3.0 * DATA.delta_tau, tau_Pi_chem));
+
+    // --- Eq. (76): (zeta/s)_chem = [(1-x)/(3 C (1+x)^2)] * (dI/de) ---
+    // with I=e-3P => dI/de = 1 - 3 cs^2
+    const double dIde = (1.0 - 3.0 * cs2);
+
+    const double zeta_over_s_raw =
+        (1.0 - x) / (3.0 * C * one_plus_x * one_plus_x) * dIde;
+
+    // keep robust/physical values
+    const double zeta_over_s = std::max(0.0, zeta_over_s_raw);
+
+    // convert to zeta using s = (e + P)/T (mu_B=0 case)
+    const double s =
+        (epsilon + pressure) / std::max(temperature, small_eps);
+    const double zeta = zeta_over_s * s;
+
+    // Israel–Stewart form 
+    // D Pi_chem = [ - zeta*theta - Pi_chem ] / tau_Pi_chem
+    const double NS_term = -zeta * theta_local;
+    const double relax_term = -(grid_pt.pi_b_chem);
+
+    // Sanity diagnostics (rate-limited to avoid log spam)
+    const int report_limit = 20;
+    static int yq_reports = 0;
+    static int zeta_reports = 0;
+    static int ns_reports = 0;
+
+    if (y_q_raw > 1.0 + 1e-6 && yq_reports < report_limit) {
+        music_message << "[chem-bulk] Y_q>1 at tau=" << tau
+                      << " Y_q=" << y_q_raw << " x_raw=" << x_raw
+                      << " Pi_chem=" << grid_pt.pi_b_chem
+                      << " Iqcd=" << Iqcd << " T=" << temperature * hbarc
+                      << " GeV";
+        music_message.flush("warning");
+        yq_reports++;
+    }
+
+    if (zeta_over_s_raw < -1e-12 && zeta_reports < report_limit) {
+        music_message << "[chem-bulk] zeta/s < 0 at tau=" << tau
+                      << " zeta/s_raw=" << zeta_over_s_raw
+                      << " cs2=" << cs2 << " x=" << x;
+        music_message.flush("warning");
+        zeta_reports++;
+    }
+
+    const double pi_ns = NS_term;
+    const double pi_ns_mag = std::abs(pi_ns);
+    const double pi_chem_mag = std::abs(grid_pt.pi_b_chem);
+    if ((pi_ns_mag > 1e-6 || pi_chem_mag > 1e-6)
+        && ns_reports < report_limit) {
+        const double denom = std::max(pi_ns_mag, 1e-6);
+        const double rel = (grid_pt.pi_b_chem - pi_ns) / denom;
+        if (grid_pt.pi_b_chem * pi_ns < 0.0 || std::abs(rel) > 1.0) {
+            music_message << "[chem-bulk] Pi_chem vs NS at tau=" << tau
+                          << " Pi_chem=" << grid_pt.pi_b_chem
+                          << " Pi_NS=" << pi_ns << " theta=" << theta_local
+                          << " zeta=" << zeta;
+            music_message.flush("info");
+            ns_reports++;
+        }
+    }
+
+    return (NS_term + relax_term) / std::max(tau_Pi_chem, small_eps);
+}
+
 void Diss::Make_uqSource(
     const double tau, const Cell_small &grid_pt, const double theta_local,
     const DumuVec &a_local, const VelocityShearVec &sigma_1d,

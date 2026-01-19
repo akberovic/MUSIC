@@ -118,6 +118,16 @@ void Init::InitArena(
         DATA.tau0 = std::max(DATA.tau0, tau_overlap);
         music_message << "tau0 = " << DATA.tau0 << " fm/c.";
         music_message.flush("info");
+        if (DATA.reRunCount == 0) {
+            DATA.gridPadding = 0;
+        } else {
+            DATA.gridPadding = 10 * DATA.reRunCount;  // count one side
+            DATA.nx += 2 * DATA.gridPadding;
+            DATA.ny += 2 * DATA.gridPadding;
+            music_message << "reRunCount = " << DATA.reRunCount
+                          << ", nx=" << DATA.nx << ", ny=" << DATA.ny;
+            music_message.flush("info");
+        }
     } else if (DATA.Initial_profile == 112 || DATA.Initial_profile == 113) {
         double tau_overlap = 2. * 7. / (sinh(DATA.beam_rapidity));
         DATA.tau0 = std::max(DATA.tau0, tau_overlap) - DATA.delta_tau;
@@ -723,8 +733,15 @@ void Init::initial_IPGlasma_XY_with_pi(
 
                 if (DATA.Initial_profile == 9) {
                     double pressure = eos.get_pressure(epsilon, rhob);
-                    arenaFieldsCurr.piBulk_[Fidx] =
-                        ((epsilon / 3. - pressure) * DATA.preEqVisFactor);
+                    if(DATA.FlagBulkChem) {
+                        arenaFieldsCurr.piBulk_[Fidx] = 0;
+                        arenaFieldsCurr.piBulkChem_[Fidx] = 
+                            (epsilon / 3. - pressure) * DATA.preEqVisFactor;
+                    } else { 
+                        arenaFieldsCurr.piBulk_[Fidx] =
+                            (epsilon / 3. - pressure) * DATA.preEqVisFactor;
+                        arenaFieldsCurr.piBulkChem_[Fidx] = 0;
+                    }
                 }
             }
 
@@ -734,9 +751,9 @@ void Init::initial_IPGlasma_XY_with_pi(
                 for (int idx_1d = 0; idx_1d < 10; idx_1d++) {
                     arenaFieldsCurr.Wmunu_[idx_1d][Fidx] = grid_c.Wmunu[idx_1d];
                     arenaFieldsCurr.piBulk_[Fidx] = grid_c.pi_b;
+                    arenaFieldsCurr.piBulkChem_[Fidx] = grid_c.pi_b_chem;
                 }
             }
-
             for (int i = 0; i < 4; i++) {
                 arenaFieldsPrev.u_[i][Fidx] = arenaFieldsCurr.u_[i][Fidx];
             }
@@ -746,6 +763,7 @@ void Init::initial_IPGlasma_XY_with_pi(
                     (arenaFieldsCurr.Wmunu_[i][Fidx]);
             }
             arenaFieldsPrev.piBulk_[Fidx] = arenaFieldsCurr.piBulk_[Fidx];
+            arenaFieldsPrev.piBulkChem_[Fidx] = arenaFieldsCurr.piBulkChem_[Fidx];
         }
     }
 }
@@ -788,8 +806,10 @@ void Init::initial_MCGlb_with_rhob(
     ifstream profile_TA(DATA.initName_TA.c_str());
     ifstream profile_TB(DATA.initName_TB.c_str());
 
-    const int nx = arenaFieldsCurr.nX();
-    const int ny = arenaFieldsCurr.nY();
+    const int nx =
+        arenaFieldsCurr.nX() - 2 * static_cast<int>(DATA.gridPadding);
+    const int ny =
+        arenaFieldsCurr.nY() - 2 * static_cast<int>(DATA.gridPadding);
     const int neta = arenaFieldsCurr.nEta();
 
     std::vector<double> temp_profile_TA(nx * ny);
@@ -882,7 +902,9 @@ void Init::initial_MCGlb_with_rhob(
                 }
                 epsilon = std::max(Util::small_eps, epsilon);
 
-                int idx_f = arenaFieldsCurr.getFieldIdx(ix, iy, ieta);
+                int idx_f = arenaFieldsCurr.getFieldIdx(
+                    static_cast<int>(ix + DATA.gridPadding),
+                    static_cast<int>(iy + DATA.gridPadding), ieta);
                 arenaFieldsCurr.e_[idx_f] = epsilon;
                 arenaFieldsCurr.rhob_[idx_f] = rhob;
 

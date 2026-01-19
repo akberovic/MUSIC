@@ -118,11 +118,13 @@ typedef struct init_data {
     int viscosity_flag;  //!< flag to include viscosity in the simulation
     int turn_on_shear;   //!< flag to include shear viscosity
     int turn_on_bulk;    //!< flag to include bulk viscosity
+    int turn_on_bulk_chem; //!< flag to include bulk viscosity from chemical non-equilibrium
     int turn_on_diff;    //!< flag to include net baryon diffusion
     double shear_to_s;   //!< value of specific shear viscosity
 
     double quest_revert_strength;
     bool FlagResumTransportCoeff;
+    bool FlagBulkChem;
     double resumTransCoeffAlpha;
     int FlagCausalityMethod;
 
@@ -194,6 +196,9 @@ typedef struct init_data {
 
     //! coefficient related to the net baryon diff.
     double kappa_coefficient;
+
+    //! chemical reaction rate constant for bulk viscosity from chemical non-equilibrium
+    double chem_rate_C;
 
     //! decide whether to output the evolution data (1) or not (0)
     int outputEvolutionData;
