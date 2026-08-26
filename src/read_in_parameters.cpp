@@ -418,6 +418,13 @@ InitData read_in_parameters(std::string input_file) {
     // chemical reaction rate for bulk viscosity from chemical non-equilibrium
     parameter_list.chem_rate_C = getParameter(input_file, "chem_rate_C", 1.0);
 
+    // Initial Y_q at tau_0 for the chemical bulk pressure seed.
+    //  In [0, 1]: sets pi_b_chem(tau_0) directly via
+    //     pi_b_chem = (e/3 - P_eq) * (1 - sqrt(Yq_init)).
+    //  Negative (default): falls back to preEqVisFactor route, so all
+    //     existing parameter files reproduce their previous behaviour.
+    parameter_list.Yq_init = getParameter(input_file, "Yq_init", -1.0);
+
     parameter_list.store_hydro_info_in_memory =
         (getParameter(input_file, "store_hydro_info_in_memory", 0));
     // output_evolution_data:

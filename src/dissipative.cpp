@@ -776,13 +776,18 @@ double Diss::Make_uPiChemSource(
     const double y_q_sqrt = std::min(1.0, std::abs(y_q_inner));
     const double y_q_raw = y_q_inner * y_q_inner;
 
-    // Eq.(18)/(20): tau_Pi_chem = 2 / [R (1 + sqrt(Y_q))(sqrt(2) + sqrt(Y_q))]
+    // tau_Pi_chem = 1 / [ R (1 + sqrt(Y_q)) (1 + (3 N_f / 4) sqrt(Y_q)) ]
+    //  with R = C * T.  The (3 N_f / 4) is fixed by the gg <-> q qbar
+    //  stoichiometry (two gluons destroyed per fusion) together with the
+    //  dilute relation sqrt(Y_q) = (8 / 3 N_f) n_q / n_g; it is not a free
+    //  convention. See writing/tau_pi_resolution.md for the derivation.
     //  Provide DATA.chem_rate_C constant C in R = C*T
     const double chem_rate_C = std::max(DATA.chem_rate_C, small_eps);
-    double tau_Pi_chem = 2.0
+    const double nf_chem = 3.0;
+    double tau_Pi_chem = 1.0
                          / std::max(
                              chem_rate_C * temperature * (1.0 + y_q_sqrt)
-                                 * (std::sqrt(2.0) + y_q_sqrt),
+                                 * (1.0 + 0.75 * nf_chem * y_q_sqrt),
                              small_eps);
 
     tau_Pi_chem = std::min(10.0, std::max(3.0 * DATA.delta_tau, tau_Pi_chem));

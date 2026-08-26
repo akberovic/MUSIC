@@ -211,6 +211,13 @@ typedef struct init_data {
     //! non-equilibrium
     double chem_rate_C;
 
+    //! initial Y_q at tau_0 for chemical bulk pressure seeding.
+    //! Values in [0, 1] set pi_b_chem(tau_0) = (Iqcd/3)*(1 - sqrt(Yq_init))
+    //! directly. A negative value (the default) falls back to the legacy
+    //! preEqVisFactor route: pi_b_chem(tau_0) = (Iqcd/3) * preEqVisFactor,
+    //! which corresponds to sqrt(Y_q(tau_0)) = 1 - preEqVisFactor.
+    double Yq_init;
+
     //! decide whether to output the evolution data (1) or not (0)
     int outputEvolutionData;
 
